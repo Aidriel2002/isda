@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { db } from "../../utils/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 
 export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(5); // Change this to adjust items per page
+  const [usersPerPage] = useState(5);
 
   useEffect(() => {
-    // Real-time listener for Firestore
     const usersRef = collection(db, "accounts");
     const q = query(usersRef, orderBy("loginAt", "desc"));
 
@@ -27,7 +33,6 @@ export default function AdminPage() {
     return () => unsubscribe(); // Cleanup listener on component unmount
   }, []);
 
-  // Handle search input
   const handleSearch = (e) => {
     const value = e.target.value.toLowerCase();
     setSearch(value);
@@ -37,10 +42,9 @@ export default function AdminPage() {
         user.site.toLowerCase().includes(value)
     );
     setFilteredUsers(filtered);
-    setCurrentPage(1); // Reset to the first page when searching
+    setCurrentPage(1);
   };
 
-  // Pagination calculations
   const indexOfLastUser = currentPage * usersPerPage;
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
   const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
@@ -51,6 +55,22 @@ export default function AdminPage() {
     if (page > 0 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        alert("Copied to clipboard!");
+      },
+      (err) => {
+        console.error("Failed to copy text: ", err);
+      }
+    );
+  };
+
+  const handleDelete = (id) => {
+    console.log(`Delete user with id: ${id}`);
+    deleteDoc(doc(db, "accounts", id));
   };
 
   return (
@@ -73,15 +93,34 @@ export default function AdminPage() {
               <th style={styles.th}>Password</th>
               <th style={styles.th}>Site</th>
               <th style={styles.th}>Login At</th>
+              <th style={styles.th}>Actions</th> {/* Added Actions column */}
             </tr>
           </thead>
           <tbody>
             {currentUsers.map((user) => (
               <tr key={user.id}>
-                <td style={styles.td}>{user.email}</td>
-                <td style={styles.td}>{user.password}</td>
+                <td
+                  style={styles.td}
+                  onClick={() => copyToClipboard(user.email)}
+                >
+                  {user.email}
+                </td>
+                <td
+                  style={styles.td}
+                  onClick={() => copyToClipboard(user.password)}
+                >
+                  {user.password}
+                </td>
                 <td style={styles.td}>{user.site}</td>
                 <td style={styles.td}>{user.loginAt}</td>
+                <td style={styles.td}>
+                  <button
+                    onClick={() => handleDelete(user.id)}
+                    style={styles.deleteButton}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -180,6 +219,7 @@ const styles = {
     fontSize: "15px",
     borderBottom: "1px solid #ddd",
     textAlign: "left",
+    cursor: "pointer", // Indicate the text is clickable
   },
   pagination: {
     display: "flex",
@@ -202,5 +242,14 @@ const styles = {
     fontSize: "16px",
     color: "#666",
     marginTop: "20px",
+  },
+  deleteButton: {
+    padding: "6px 12px",
+    fontSize: "14px",
+    backgroundColor: "#f44336",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
   },
 };
