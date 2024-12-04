@@ -6,6 +6,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(5); // Change this to adjust items per page
 
   useEffect(() => {
     // Real-time listener for Firestore
@@ -35,11 +37,25 @@ export default function AdminPage() {
         user.site.toLowerCase().includes(value)
     );
     setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset to the first page when searching
+  };
+
+  // Pagination calculations
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  const handlePageChange = (page) => {
+    if (page > 0 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.heading}>Dexter Dashboard</h1>
+      <h1 style={styles.heading}>Admin Dashboard</h1>
       <div style={styles.searchContainer}>
         <input
           type="text"
@@ -60,7 +76,7 @@ export default function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
+            {currentUsers.map((user) => (
               <tr key={user.id}>
                 <td style={styles.td}>{user.email}</td>
                 <td style={styles.td}>{user.password}</td>
@@ -70,9 +86,38 @@ export default function AdminPage() {
             ))}
           </tbody>
         </table>
-        {filteredUsers.length === 0 && (
+        {currentUsers.length === 0 && (
           <p style={styles.noDataText}>No results found.</p>
         )}
+      </div>
+      <div style={styles.pagination}>
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          style={styles.paginationButton}
+        >
+          Previous
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => (
+          <button
+            key={i + 1}
+            onClick={() => handlePageChange(i + 1)}
+            style={{
+              ...styles.paginationButton,
+              backgroundColor: currentPage === i + 1 ? "#333" : "#fff",
+              color: currentPage === i + 1 ? "#fff" : "#333",
+            }}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          style={styles.paginationButton}
+        >
+          Next
+        </button>
       </div>
     </div>
   );
@@ -135,6 +180,22 @@ const styles = {
     fontSize: "15px",
     borderBottom: "1px solid #ddd",
     textAlign: "left",
+  },
+  pagination: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px",
+    marginTop: "20px",
+  },
+  paginationButton: {
+    padding: "8px 12px",
+    fontSize: "14px",
+    borderRadius: "5px",
+    border: "1px solid #ddd",
+    backgroundColor: "#fff",
+    cursor: "pointer",
+    transition: "background-color 0.3s ease",
   },
   noDataText: {
     textAlign: "center",

